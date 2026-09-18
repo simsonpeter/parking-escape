@@ -4,6 +4,7 @@
   const STORE_KEY = "parking-escape-v1";
   const HINTS_PER_LEVEL = 3;
   const SNAP_THRESHOLD = 0.45;
+  const TAP_SLOP = 14;
   const GAP = 0.08;
 
   const $ = (id) => document.getElementById(id);
@@ -49,6 +50,7 @@
     cell: 56,
     drag: null,
     locked: false,
+    sliding: false,
     progress: loadProgress()
   };
 
@@ -130,6 +132,11 @@
     tone(880, 0.12, "sine", 0.04);
   }
 
+  function playBumpSound() {
+    tone(110, 0.07, "square", 0.03);
+    tone(70, 0.09, "sine", 0.04);
+  }
+
   function vibrate(ms) {
     if (navigator.vibrate) navigator.vibrate(ms);
   }
@@ -201,11 +208,13 @@
     state.undo = [];
     state.hintsLeft = HINTS_PER_LEVEL;
     state.locked = false;
+    state.sliding = false;
     state.drag = null;
     showScreen("game");
     layoutBoard();
     renderBoard();
     updateHud();
+    els.coach.textContent = "Tap the red car's front to drive out";
     els.coach.classList.toggle("hidden", id !== 1);
     hideModal();
   }
@@ -320,25 +329,42 @@
       '<div class="car-wheel k3"></div>' +
       '<div class="car-wheel k4"></div>' +
       (car.target ? '<div class="car-stripe"></div>' : "") +
+      '<span class="car-end back" aria-hidden="true"></span>' +
+      '<span class="car-end front" aria-hidden="true"></span>' +
       "</div>";
     placeCar(el, car.x, car.y, car, false);
     bindCar(el, car);
     return el;
   }
 
-  function placeCar(el, x, y, car, animate) {
+  function slideDuration(cells) {
+    if (reducedMotion) return 90;
+    return Math.min(480, 110 + Math.max(1, cells) * 85);
+  }
+
+  function placeCar(el, x, y, car, animate, cells) {
     const cell = state.cell;
     const pad = cell * GAP;
+    const ms = slideDuration(cells || 1);
     if (!animate) el.style.transition = "none";
     else {
       el.style.transition = reducedMotion
-        ? "left 0.12s linear, top 0.12s linear"
-        : "left 0.2s cubic-bezier(.2,.8,.2,1), top 0.2s cubic-bezier(.2,.8,.2,1)";
+        ? "left 0.09s linear, top 0.09s linear"
+        : "left " + ms + "ms cubic-bezier(.18,.86,.22,1), top " + ms + "ms cubic-bezier(.18,.86,.22,1)";
     }
     el.style.left = x * cell + pad + "px";
     el.style.top = y * cell + pad + "px";
     el.style.width = (car.orientation === "horizontal" ? car.length : 1) * cell - pad * 2 + "px";
     el.style.height = (car.orientation === "vertical" ? car.length : 1) * cell - pad * 2 + "px";
+    return ms;
+  }
+
+  function tapEnd(car, el, clientX, clientY) {
+    const r = el.getBoundingClientRect();
+    if (car.orientation === "horizontal") {
+      return (clientX - r.left) / Math.max(1, r.width) >= 0.5 ? "forward" : "back";
+    }
+    return (clientY - r.top) / Math.max(1, r.height) >= 0.5 ? "forward" : "back";
   }
 
   function bindCar(el, car) {
@@ -350,13 +376,14 @@
   document.addEventListener("pointercancel", onUp);
 
   function onDown(e, car, el) {
-    if (state.locked || state.drag) return;
+    if (state.locked || state.drag || state.sliding) return;
     e.preventDefault();
     e.stopPropagation();
     try {
       el.setPointerCapture(e.pointerId);
     } catch (err) {}
     const bounds = PE.getDragBounds(car, state.cars, state.level.size, state.level.exit);
+    const end = tapEnd(car, el, e.clientX, e.clientY);
     state.drag = {
       car: car,
       el: el,
@@ -367,9 +394,12 @@
       origY: car.y,
       liveX: car.x,
       liveY: car.y,
-      bounds: bounds
+      bounds: bounds,
+      end: end,
+      moved: false
     };
     el.classList.add("is-dragging");
+    el.classList.add(end === "forward" ? "press-front" : "press-back");
     els.coach.classList.add("hidden");
   }
 
@@ -378,6 +408,9 @@
     if (!drag) return;
     if (e.pointerId != null && drag.pointerId != null && e.pointerId !== drag.pointerId) return;
     e.preventDefault();
+    const dist = Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY);
+    if (dist >= TAP_SLOP) drag.moved = true;
+    if (!drag.moved) return;
     const cell = state.cell;
     let x = drag.origX;
     let y = drag.origY;
@@ -395,7 +428,16 @@
     const drag = state.drag;
     if (!drag || (e.pointerId != null && e.pointerId !== drag.pointerId)) return;
     const car = drag.car;
+    const el = drag.el;
     const size = state.level.size;
+    el.classList.remove("is-dragging", "press-front", "press-back");
+    state.drag = null;
+
+    if (!drag.moved) {
+      autoSlide(car, el, drag.end);
+      return;
+    }
+
     let nx = drag.origX;
     let ny = drag.origY;
 
@@ -412,11 +454,8 @@
       state.level.exit === "right" &&
       drag.liveX >= size - car.length + SNAP_THRESHOLD;
 
-    drag.el.classList.remove("is-dragging");
-    state.drag = null;
-
     if (exiting) {
-      commitMove(car, Math.max(size - car.length + 1, nx), ny, drag.el, true);
+      commitMove(car, Math.max(size - car.length + 1, nx), ny, el, true, "forward");
       return;
     }
 
@@ -426,12 +465,66 @@
     ny = clamp(ny, 0, boardMaxY);
 
     if (nx === car.x && ny === car.y) {
-      placeCar(drag.el, nx, ny, car, true);
-      bounce(drag.el);
+      placeCar(el, nx, ny, car, true, 1);
+      bounce(el);
       return;
     }
 
-    commitMove(car, nx, ny, drag.el, false);
+    const end = nx > car.x || ny > car.y ? "forward" : "back";
+    commitMove(car, nx, ny, el, false, end);
+  }
+
+  function autoSlide(car, el, end) {
+    const bounds = PE.getDragBounds(car, state.cars, state.level.size, state.level.exit);
+    const size = state.level.size;
+    let nx = car.x;
+    let ny = car.y;
+    if (car.orientation === "horizontal") {
+      nx = end === "forward" ? Math.floor(bounds.max) : Math.ceil(bounds.min);
+    } else {
+      ny = end === "forward" ? Math.floor(bounds.max) : Math.ceil(bounds.min);
+    }
+
+    const exiting =
+      car.target &&
+      state.level.exit === "right" &&
+      end === "forward" &&
+      nx > size - car.length;
+
+    if (!exiting) {
+      const boardMaxX = car.orientation === "horizontal" ? size - car.length : size - 1;
+      const boardMaxY = car.orientation === "vertical" ? size - car.length : size - 1;
+      nx = clamp(nx, 0, boardMaxX);
+      ny = clamp(ny, 0, boardMaxY);
+    }
+
+    if (nx === car.x && ny === car.y) {
+      bumpCar(el, car, end);
+      playBumpSound();
+      vibrate(7);
+      return;
+    }
+
+    commitMove(car, nx, ny, el, exiting, end);
+  }
+
+  function bumpCar(el, car, end) {
+    if (reducedMotion) {
+      bounce(el);
+      return;
+    }
+    const cls =
+      car.orientation === "horizontal"
+        ? end === "forward"
+          ? "bump-right"
+          : "bump-left"
+        : end === "forward"
+          ? "bump-down"
+          : "bump-up";
+    el.classList.remove("bump-left", "bump-right", "bump-up", "bump-down");
+    void el.offsetWidth;
+    el.classList.add(cls);
+    setTimeout(() => el.classList.remove(cls), 220);
   }
 
   function snapAxis(live, orig, bounds) {
@@ -442,7 +535,14 @@
     return clamp(snapped, Math.ceil(bounds.min), Math.floor(bounds.max));
   }
 
-  function commitMove(car, x, y, el, didExit) {
+  function commitMove(car, x, y, el, didExit, end) {
+    const fromX = car.x;
+    const fromY = car.y;
+    const cells = Math.max(
+      1,
+      Math.abs(car.orientation === "horizontal" ? x - fromX : y - fromY)
+    );
+    const rollEnd = end || (x > fromX || y > fromY ? "forward" : "back");
     state.undo.push({
       cars: PE.cloneCars(state.cars),
       moves: state.moves
@@ -450,14 +550,24 @@
     car.x = x;
     car.y = y;
     state.moves += 1;
-    placeCar(el, x, y, car, true);
-    bounce(el);
+    state.sliding = true;
+    const ms = placeCar(el, x, y, car, true, cells);
+    el.classList.add("is-rolling");
+    el.classList.toggle("roll-forward", rollEnd === "forward");
+    el.classList.toggle("roll-back", rollEnd === "back");
+    if (!reducedMotion) spawnDust(el, car, rollEnd);
     playMoveSound();
     vibrate(8);
     updateHud();
     if (didExit || (car.target && hasEscaped(car))) {
-      finishEscape(el, car);
+      finishEscape(el, car, ms);
+      return;
     }
+    setTimeout(() => {
+      el.classList.remove("is-rolling", "roll-forward", "roll-back");
+      bounce(el);
+      state.sliding = false;
+    }, ms);
   }
 
   function hasEscaped(car) {
@@ -468,12 +578,14 @@
     return car.y < 0;
   }
 
-  function finishEscape(el, car) {
+  function finishEscape(el, car, delay) {
     state.locked = true;
+    state.sliding = true;
     const size = state.level.size;
     const endX = state.level.exit === "right" ? size + 1.15 : car.x;
-    const duration = reducedMotion ? 80 : 420;
-    placeCar(el, endX, car.y, car, true);
+    const duration = reducedMotion ? 80 : Math.max(delay || 0, 380);
+    el.classList.add("is-rolling", "roll-forward", "is-escaping");
+    placeCar(el, endX, car.y, car, true, 3);
     if (!reducedMotion) spawnBurst();
     playSuccessSound();
     vibrate(18);
@@ -485,6 +597,33 @@
     el.classList.remove("land");
     void el.offsetWidth;
     el.classList.add("land");
+  }
+
+  function spawnDust(el, car, end) {
+    const rect = el.getBoundingClientRect();
+    const boardRect = els.board.getBoundingClientRect();
+    const n = 5;
+    for (let i = 0; i < n; i++) {
+      const p = document.createElement("div");
+      p.className = "dust";
+      let x = rect.left - boardRect.left + rect.width / 2;
+      let y = rect.top - boardRect.top + rect.height / 2;
+      if (car.orientation === "horizontal") {
+        x = end === "forward" ? rect.left - boardRect.left + 6 : rect.right - boardRect.left - 6;
+      } else {
+        y = end === "forward" ? rect.top - boardRect.top + 6 : rect.bottom - boardRect.top - 6;
+      }
+      p.style.left = x + (Math.random() * 10 - 5) + "px";
+      p.style.top = y + (Math.random() * 10 - 5) + "px";
+      els.board.appendChild(p);
+      p.animate(
+        [
+          { transform: "translate(-50%,-50%) scale(0.7)", opacity: 0.45 },
+          { transform: "translate(-50%,-50%) scale(1.6)", opacity: 0 }
+        ],
+        { duration: 280 + Math.random() * 120, easing: "ease-out" }
+      ).onfinish = () => p.remove();
+    }
   }
 
   function spawnBurst() {
@@ -544,13 +683,14 @@
     state.undo = [];
     state.hintsLeft = HINTS_PER_LEVEL;
     state.locked = false;
+    state.sliding = false;
     renderBoard();
     updateHud();
   }
 
   function undoMove() {
     const snap = state.undo.pop();
-    if (!snap || state.locked) return;
+    if (!snap || state.locked || state.sliding) return;
     state.cars = PE.cloneCars(snap.cars);
     state.moves = snap.moves;
     renderBoard();
@@ -558,7 +698,7 @@
   }
 
   function giveHint() {
-    if (state.locked) return;
+    if (state.locked || state.sliding) return;
     if (!state.hintsLeft) {
       toast("No hints left this attempt");
       return;

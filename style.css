@@ -234,6 +234,7 @@ h2 {
   background: linear-gradient(180deg, #ff5a4c, var(--danger));
   position: relative;
   box-shadow: 0 6px 12px rgba(226, 59, 47, 0.35);
+  animation: brandBob 2.6s ease-in-out infinite;
 }
 
 .brand-car::before,
@@ -475,6 +476,7 @@ h2 {
       rgba(255, 255, 255, 0.55) 10px 14px,
       transparent 14px 22px
     );
+  animation: exitPulse 1.15s ease-in-out infinite;
 }
 
 .exit-label {
@@ -654,6 +656,96 @@ h2 {
     0 8px 18px rgba(226, 59, 47, 0.28);
 }
 
+.car.target:not(.is-dragging):not(.is-rolling) {
+  animation: targetIdle 2.4s ease-in-out infinite;
+}
+
+.car-end {
+  position: absolute;
+  pointer-events: none;
+  z-index: 4;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.car.horizontal .car-end.front {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 48%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2));
+}
+
+.car.horizontal .car-end.back {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 48%;
+  background: linear-gradient(270deg, transparent, rgba(255, 255, 255, 0.16));
+}
+
+.car.vertical .car-end.front {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 48%;
+  background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.2));
+}
+
+.car.vertical .car-end.back {
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 48%;
+  background: linear-gradient(0deg, transparent, rgba(255, 255, 255, 0.16));
+}
+
+.car.press-front .car-end.front,
+.car.press-back .car-end.back {
+  opacity: 1;
+}
+
+.car.is-rolling.horizontal .car-wheel {
+  animation: wheelH 0.14s linear infinite;
+}
+
+.car.is-rolling.vertical .car-wheel {
+  animation: wheelV 0.14s linear infinite;
+}
+
+.car.is-rolling.roll-back .car-wheel {
+  animation-direction: reverse;
+}
+
+.car.is-rolling.roll-forward .car-light.head {
+  box-shadow: 0 0 16px 4px var(--light);
+  filter: brightness(1.45);
+}
+
+.car.is-rolling.roll-back .car-light.tail {
+  box-shadow: 0 0 12px 3px var(--tail);
+  filter: brightness(1.35);
+}
+
+.car.bump-right { animation: bumpX 0.2s ease; }
+.car.bump-left { animation: bumpX 0.2s ease reverse; }
+.car.bump-down { animation: bumpY 0.2s ease; }
+.car.bump-up { animation: bumpY 0.2s ease reverse; }
+
+.car.is-escaping .car-body {
+  filter: brightness(1.12);
+}
+
+.dust {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: rgba(230, 232, 238, 0.28);
+  pointer-events: none;
+  z-index: 6;
+}
+
 .hint-arrow {
   position: absolute;
   z-index: 7;
@@ -778,6 +870,43 @@ h2 {
   0% { transform: scale(1.04); }
   55% { transform: scale(0.985); }
   100% { transform: scale(1); }
+}
+
+@keyframes wheelH {
+  from { transform: translateX(0); }
+  to { transform: translateX(-5px); }
+}
+
+@keyframes wheelV {
+  from { transform: translateY(0); }
+  to { transform: translateY(-5px); }
+}
+
+@keyframes bumpX {
+  0% { transform: translateX(0); }
+  40% { transform: translateX(7px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes bumpY {
+  0% { transform: translateY(0); }
+  40% { transform: translateY(7px); }
+  100% { transform: translateY(0); }
+}
+
+@keyframes targetIdle {
+  0%, 100% { filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.35)); }
+  50% { filter: drop-shadow(0 8px 18px rgba(226, 59, 47, 0.42)); }
+}
+
+@keyframes brandBob {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(6px); }
+}
+
+@keyframes exitPulse {
+  0%, 100% { opacity: 0.62; background-position: 0 0; }
+  50% { opacity: 1; background-position: 8px 0; }
 }
 
 .car.land {
