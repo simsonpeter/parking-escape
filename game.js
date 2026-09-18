@@ -55,6 +55,7 @@
   };
 
   let audioCtx = null;
+  let noiseBuf = null;
   let toastTimer = 0;
 
   function loadProgress() {
@@ -95,46 +96,88 @@
     return audioCtx;
   }
 
-  function tone(freq, duration, type, gain, delay) {
+  function getNoise(ctx) {
+    if (noiseBuf && noiseBuf.sampleRate === ctx.sampleRate) return noiseBuf;
+    const len = Math.floor(ctx.sampleRate * 0.45);
+    noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = noiseBuf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    return noiseBuf;
+  }
+
+  function envGain(ctx, start, peak, attack, dur) {
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, start);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), start + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    return g;
+  }
+
+  function tone(freq, duration, type, gain, delay, slideTo) {
     if (!state.progress.sound) return;
     const ctx = getCtx();
     if (!ctx) return;
     const start = ctx.currentTime + (delay || 0);
     const osc = ctx.createOscillator();
-    const g = ctx.createGain();
+    const g = envGain(ctx, start, gain || 0.06, 0.012, duration);
     osc.type = type || "sine";
     osc.frequency.setValueAtTime(freq, start);
-    g.gain.setValueAtTime(0.0001, start);
-    g.gain.exponentialRampToValueAtTime(gain || 0.06, start + 0.015);
-    g.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, start + duration);
     osc.connect(g);
     g.connect(ctx.destination);
     osc.start(start);
-    osc.stop(start + duration + 0.02);
+    osc.stop(start + duration + 0.03);
   }
 
-  function playMoveSound() {
-    tone(180, 0.08, "triangle", 0.05);
-    tone(90, 0.1, "sine", 0.03);
+  function whoosh(cutoff, duration, peak, delay, filterType) {
+    if (!state.progress.sound) return;
+    const ctx = getCtx();
+    if (!ctx) return;
+    const start = ctx.currentTime + (delay || 0);
+    const src = ctx.createBufferSource();
+    src.buffer = getNoise(ctx);
+    const f = ctx.createBiquadFilter();
+    f.type = filterType || "lowpass";
+    f.frequency.setValueAtTime(cutoff, start);
+    f.frequency.exponentialRampToValueAtTime(Math.max(90, cutoff * 0.28), start + duration);
+    const g = envGain(ctx, start, peak, 0.01, duration);
+    src.connect(f);
+    f.connect(g);
+    g.connect(ctx.destination);
+    src.start(start);
+    src.stop(start + duration + 0.02);
+  }
+
+  function playMoveSound(cells) {
+    const n = Math.max(1, cells || 1);
+    whoosh(720 + n * 90, 0.09 + n * 0.025, 0.05, 0, "lowpass");
+    tone(190, 0.11 + n * 0.02, "triangle", 0.055, 0, 72);
   }
 
   function playButtonSound() {
-    tone(520, 0.05, "sine", 0.035);
+    whoosh(2400, 0.04, 0.02, 0, "highpass");
+    tone(640, 0.05, "triangle", 0.04);
+    tone(1280, 0.03, "sine", 0.018, 0.012);
   }
 
   function playSuccessSound() {
-    tone(523.25, 0.16, "triangle", 0.07, 0);
-    tone(659.25, 0.16, "triangle", 0.07, 0.09);
-    tone(783.99, 0.28, "triangle", 0.08, 0.18);
+    whoosh(1800, 0.22, 0.035, 0, "bandpass");
+    tone(261.63, 0.18, "sine", 0.05, 0, 255);
+    tone(329.63, 0.18, "triangle", 0.06, 0.08);
+    tone(392.0, 0.2, "triangle", 0.07, 0.16);
+    tone(523.25, 0.32, "sine", 0.08, 0.26);
+    tone(784.0, 0.22, "sine", 0.04, 0.34);
   }
 
   function playHintSound() {
-    tone(880, 0.12, "sine", 0.04);
+    tone(740, 0.1, "sine", 0.04);
+    tone(988, 0.14, "triangle", 0.045, 0.08);
+    whoosh(1600, 0.12, 0.02, 0.02, "highpass");
   }
 
   function playBumpSound() {
-    tone(110, 0.07, "square", 0.03);
-    tone(70, 0.09, "sine", 0.04);
+    whoosh(380, 0.1, 0.06, 0, "lowpass");
+    tone(92, 0.09, "square", 0.035, 0, 48);
   }
 
   function vibrate(ms) {
@@ -556,7 +599,7 @@
     el.classList.toggle("roll-forward", rollEnd === "forward");
     el.classList.toggle("roll-back", rollEnd === "back");
     if (!reducedMotion) spawnDust(el, car, rollEnd);
-    playMoveSound();
+    playMoveSound(cells);
     vibrate(8);
     updateHud();
     if (didExit || (car.target && hasEscaped(car))) {

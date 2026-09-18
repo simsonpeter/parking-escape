@@ -14,7 +14,7 @@ No build step, no backend, no image assets.
 
 ## How to play
 
-- Drag cars with touch or mouse.
+- Tap a car's **front** or **back** to slide it automatically, or drag it.
 - Horizontal cars move only left/right. Vertical cars move only up/down.
 - Cars cannot overlap or leave the lot.
 - Slide the red target car through the **EXIT**.
@@ -52,4 +52,4 @@ L(31, 8, [
 | `index.html` | Screens and markup |
 | `style.css` | Layout, lot, cars, motion |
 | `game.js` | Dragging, UI, sound, save data |
-| `levels.js` | 30 handcrafted puzzles and solver |
+| `levels.js` | 50 handcrafted puzzles and solver |

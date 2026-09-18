@@ -67,7 +67,27 @@
     L(27, 18, ["DBBCC.", "D..IE.", "DRRIEG", "FFA.EG", "..AHHG", "...JJ."]),
     L(28, 20, ["DBBCC.", "D...E.", "DRRIEG", "FFAIEG", "..AHHG", "..JJ.."]),
     L(29, 21, ["DBBICC", "D..IE.", "D.RREG", "FF..EG", "..AHHG", "JJA..."]),
-    L(30, 21, ["DBBCC.", "D...EG", "D.RREG", "FFA.EG", "..AIHH", "JJ.I.."])
+    L(30, 21, ["DBBCC.", "D...EG", "D.RREG", "FFA.EG", "..AIHH", "JJ.I.."]),
+    L(31, 8, ["A.BB.C", "A.D..C", "RRD..C", "..DEE.", "FF.G..", "...GHH"]),
+    L(32, 9, ["A.BB..", "A.D..C", "RRD..C", "..DEEC", ".FFG..", "...GHH"]),
+    L(33, 10, ["A.BB.C", "A....C", "..DRRC", "..DEE.", "..DGFF", "...GHH"]),
+    L(34, 10, ["A.BB.C", "A.D..C", "..DRRC", "..DEE.", "...GFF", "...GHH"]),
+    L(35, 11, ["..BB..", "..D..C", "A.DRRC", "A.DEEC", "...GFF", "...GHH"]),
+    L(36, 12, ["BBCC..", "A...E.", "ARRDE.", "FF.DE.", "..GDHH", "..GII."]),
+    L(37, 12, ["BBCCE.", "A..DE.", "ARRDE.", "FF.D..", "..G.HH", "..GII."]),
+    L(38, 13, ["BBCCE.", "A...E.", "ARRDE.", "FFGD..", "..GDHH", "...II."]),
+    L(39, 14, ["BBCCE.", "....E.", "RR..E.", "AFFD..", "A.GDHH", "IIGD.."]),
+    L(40, 15, ["BB.CC.", "...IE.", "DRRIEG", "D.FFEG", "D.AHHG", "..AJJ."]),
+    L(41, 15, [".BBCC.", "...IE.", ".RRIEG", "D.FFEG", "D.AHHG", "D.AJJ."]),
+    L(42, 16, [".BB.CC", "...IE.", "DRRIEG", "D.FFEG", "D.AHHG", "..AJJ."]),
+    L(43, 17, [".BBICC", "...IE.", "DRR.EG", "D.FFEG", "D.AHHG", "..AJJ."]),
+    L(44, 18, ["DBBCC.", "D...E.", "DRRIEG", "FF.IEG", "..AHHG", "..AJJ."]),
+    L(45, 19, ["DBBCC.", "D...E.", "DRRIEG", "FFAIEG", "..AHHG", "...JJ."]),
+    L(46, 20, ["DBBCC.", "D...E.", "DRRIEG", "FFAIEG", "..AHHG", ".JJ..."]),
+    L(47, 21, ["DBBCC.", "D...EG", "D.RREG", "FFA.EG", "..AIHH", ".JJI.."]),
+    L(48, 21, ["DBBCCG", "D...EG", "D.RREG", "FFA.E.", "..AIHH", ".JJI.."]),
+    L(49, 21, ["DBBCCG", "D...EG", "D.RREG", "FFA.E.", "..AIHH", "JJ.I.."]),
+    L(50, 21, ["DBBICC", "D..IEG", "D.RREG", "FF..EG", "..AHH.", "JJA..."])
   ];
 
   function parseGrid(id, size, exit, rows) {
